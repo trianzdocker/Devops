@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+set -e
+
+NAME=$(basename $(pwd))
+DOCKER_REPO=docker.Trianz.com
+TAG=2.0
+BUILDNUM=0
+IMAGE=${DOCKER_REPO}/${NAME}:${TAG}-${BUILDNUM}
+MYHOSTNAME=$(hostname)

@@ -1,0 +1,33 @@
+#!/bin/bash
+#
+# Used if/when you have a Mongo database with replication setup
+#
+
+set -e
+
+cd $(dirname $0)/..
+
+source script/settings
+
+if [ x$1 == "x" ]
+then
+  echo "Must specify a host to add to the cluster."
+  exit
+fi
+
+echo ""
+
+DATABASE_CMD="mongo ${NAME}:27017/local --eval \"rs.add('$1:27017')\" "
+
+# NOTE: This command is run without the '-i' flag so that ansible can also run it
+echo "--> Adding host: $1 to cluster with rs.add() <--"
+cmd="docker run -t \
+	--rm \
+	--link ${NAME}:${NAME} \
+	${IMAGE}
+	${DATABASE_CMD}"
+echo ${cmd}
+
+set -x
+
+eval ${cmd}

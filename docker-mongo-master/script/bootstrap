@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+# script/bootstrap: Resolve all dependencies that the application requires to
+#                   run.
+
+set -e
+
+cd $(dirname "$0")/..
+
+echo "==> Installing dependencies…"
+
+APP=$(basename $(pwd))
+OS=$(uname -s)
+
+echo "==> Bootstrapping ${APP} ..."
+echo "--> Starting Docker"
+case $OS in
+    Darwin)
+        if [ $(boot2docker status) != "running" ]
+        then
+            boot2docker up
+            eval $(boot2docker shellinit)
+        fi
+        ;;
+    Linux)
+        ##
+        # This will work too:
+        #
+        # sudo service docker status || sudo service docker start
+        ##
+    	if [ $(ps -ef | grep -v grep | grep docker | wc -l) -eq 0 ]
+        then
+	        sudo echo
+    	    canSudo=$?
+	        if [[ "$canSudo" -ne 0 ]]; then
+            	service docker start
+        	else
+	            sudo service docker start
+	        fi
+        else
+	        echo "Docker is already started"
+        fi
+        ;;
+esac

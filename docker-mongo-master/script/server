@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+set -e
+
+cd $(dirname $0)/..
+
+if [ -z $1 ]
+then
+    echo "Usage: server {start | stop }"
+    exit
+fi
+
+# Bootstrap
+source script/bootstrap
+
+source script/settings
+
+#VOLUME=/opt/isv/mongo/data:/data/db
+VOLUME=/opt/mongo/data:/var/lib/mongodb
+
+if [ "x$1" == "xstart" ]
+then
+
+    #MONGO_PARAMETERS="--bind_ip_all"
+    #MONGO_PARAMETERS=" --config /etc/mongod.conf"
+    MONGO_PARAMETERS=" --replSet ESSDockerMongo"
+	#MONGO_PARAMETERS=""
+	
+    echo "Starting ${IMAGE}"
+	cmd="docker run -d \
+		-p 27027:27017 \
+		-h ${MYHOSTNAME} \
+		-v ${VOLUME} \
+		--name ${NAME} \
+		--restart=always \
+		${IMAGE} \
+		${MONGO_PARAMETERS}"
+	echo ${cmd}
+	$cmd
+elif [ "x$1" == "xstop" ]
+then
+	echo "Stopping ${NAME}"
+	for id in $(docker ps -a | grep ${NAME} | awk '{print $1}')
+	do
+	    CONTAINER_NAME=$(docker inspect $id | grep Name | awk -F: '{print $2}' | tr -d '", ')
+	    echo "--> Stopping container ${CONTAINER_NAME}"
+	    docker stop $id
+	    
+	    echo "--> Removing container ${NAME}"
+	    docker rm $id
+	done	
+else
+    echo "Invalid parameter '$1'"
+fi

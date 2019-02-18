@@ -1,0 +1,91 @@
+#!/bin/bash
+#
+# Pushes an image to the Docker Registry
+# Tells Marathon to start up this application
+#
+
+set -e
+
+WORKDIR=$(pwd)
+
+cd $(dirname $0)/..
+
+# Build docker image
+script/bootstrap
+
+# Import settings (TAG, IMAGE_NAME, etc.)
+source script/settings
+
+# If a command-line argument was passed in
+# The Jenkins build-server will use this functionality
+QADEPLOY=false
+if [ $1 ]
+then
+    if [ $1 == "qa" ]
+    then
+        echo "Deploy to QA requested"
+    	QADEPLOY=true
+    else
+        echo "Override Build TAG: $1"
+        TAG=$1
+    fi
+fi
+
+if [ $QADEPLOY == "true" ]
+then
+	echo "===> Build LOCAL image for QA Deployment: ${WORKDIR}/${NAME}.v${TAG}-${BUILDNUM}.dockerimage.tar"
+	docker save ${IMAGE} > ${WORKDIR}/${NAME}.v${TAG}-${BUILDNUM}.dockerimage.tar
+	echo "===> Create tarball for QA Deployment: tar cvfz ${WORKDIR}/${NAME}.v${TAG}-${BUILDNUM}.tar.gz --exclude .git -C ${WORKDIR} ${NAME}/"
+	tar cvfz ${WORKDIR}/${NAME}.v${TAG}-${BUILDNUM}.tar.gz --exclude .git -C ${WORKDIR} ${NAME}/
+	
+	cd ${WORKDIR}
+	scp ${WORKDIR}/${NAME}.v${TAG}-${BUILDNUM}.dockerimage.tar root@cpliqad5.homedepot.com:/opt/isv
+	scp ${WORKDIR}/${NAME}.v${TAG}-${BUILDNUM}.tar.gz root@cpliqad5.homedepot.com:/opt/isv
+else
+	echo "===> Pushing Docker image to registry: ${IMAGE}"
+	docker push ${IMAGE}
+fi
+
+echo "=========> Deprecated deployment method.  Please refactor. <================="
+echo "exiting."
+exit
+
+echo "===> Building Marathon payload"
+MARATHON_PAYLOAD_FILENAME="marathon_payload.json"
+cp marathon.json ${MARATHON_PAYLOAD_FILENAME} 
+
+# Modify the Marathon payload to start up the new build
+sed -i -e "s/DOCKER_REPO/${DOCKER_REPO}/g" ${MARATHON_PAYLOAD_FILENAME}
+
+# Modify the JSON to inject the proper DOCKER NAME
+sed -i -e "s/DOCKER_NAME/${NAME}/g" ${MARATHON_PAYLOAD_FILENAME}
+
+# Modify the JSON to inject the proper DOCKER TAG
+sed -i -e "s/DOCKER_TAG/${TAG}/g" ${MARATHON_PAYLOAD_FILENAME}
+
+# Modify the JSON to inject the proper MESOS APPLICATION ID, taking off the word 'docker-'
+# Also, place this app underneath the 'ems' group in Mesos
+MESOS_ID=${NAME#docker-}
+# replace underscore and make them dashes
+MESOS_ID=${MESOS_ID//_/-}
+sed -i -e "s/MESOS_ID/\/ems\/${MESOS_ID}/g" ${MARATHON_PAYLOAD_FILENAME}
+
+# Deploy to Marathon
+MARATHON_HOST=marathon.ems.homedepot.com
+MARATHON_USERNAME=admin
+MARATHON_PASSWORD=M3soSizeme
+MARATHON_URL="http://${MARATHON_USERNAME}:${MARATHON_PASSWORD}@${MARATHON_HOST}/v2/apps -d@${MARATHON_PAYLOAD_FILENAME}"
+
+#
+###################################
+# DISABLED (for now)
+echo "===> Deploying to Marathon"
+echo "--->   ${MARATHON_URL}"
+#curl -X POST -H"Content-Type: application/json" ${MARATHON_URL}
+
+echo ""
+echo "===> Cleanup"
+#rm ${MARATHON_PAYLOAD_FILENAME}
+
+echo ""
+echo "===> Finished!"

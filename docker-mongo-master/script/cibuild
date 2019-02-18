@@ -1,0 +1,28 @@
+#!/bin/bash
+
+set -e
+
+cd $(dirname $0)/..
+
+# Bootstrap
+script/bootstrap
+
+# Import settings (TAG, IMAGE_NAME, etc.)
+source script/settings
+
+# If a command-line argument was passed in
+# The Jenkins build-server will use this functionality
+if [ $1 ]
+then
+    echo "Override Build TAG: $1"
+    TAG=$1
+fi
+
+echo "--> Building Image: ${IMAGE}"
+
+docker build -t ${IMAGE} .
+
+echo "" && \
+echo "===> Finished!"
+
+exit $result

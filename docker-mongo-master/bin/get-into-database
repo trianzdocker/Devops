@@ -1,0 +1,28 @@
+#!/bin/bash
+#
+# Used if/when you have a Mongo database with replication setup
+#
+
+set -e
+
+cd $(dirname $0)/..
+
+source script/settings
+
+REPLICATION_CMD="mongo ${NAME}:27017/local" 
+
+echo "--> Initializing replication with rs.initiate()"
+cmd="docker run -it \
+	--rm \
+	--link ${NAME}:${NAME} \
+	${IMAGE}
+	${REPLICATION_CMD}"
+echo ${cmd}
+
+set -x
+
+docker run -it \
+	--rm \
+	--link ${NAME}:${NAME} \
+	${IMAGE} \
+	${REPLICATION_CMD}
